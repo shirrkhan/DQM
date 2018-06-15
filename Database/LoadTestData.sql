@@ -1,0 +1,99 @@
+USE DQM
+GO
+
+EXEC INSERT_ELT_FLOW 'TEST_ETL','Teszt flow2'
+GO
+EXEC INSERT_DQM_FLOW 'TEST_ETL', 'TEST_DQM1', 'Teszt DQM flow #1'
+GO
+EXEC INSERT_DQM_FLOW 'TEST_ETL', 'TEST_DQM2', 'Teszt DQM flow #2'
+GO
+
+IF OBJECT_ID('REGI') IS NOT NULL
+DROP TABLE REGI
+
+CREATE TABLE [DBO].REGI(
+	[DQMFLOWNAME] [NVARCHAR](255) NOT NULL,
+	[ERRORTYPECD] [NVARCHAR](255) NOT NULL,
+	[CHECKTYPECD] [NVARCHAR](255) NOT NULL,
+	[SCHEMANAME] [NVARCHAR](255) NOT NULL,
+	[TABLENAME] [NVARCHAR](255) NOT NULL,
+	[COLUMNNAME] [NVARCHAR](255) NULL,
+	[DQMKEYFIELDS] [NVARCHAR](255) NULL,
+	DELETEDFLAG bit,
+	[VALIDFROM] [DATE] NOT NULL,
+	[VALIDTO] [DATE] NOT NULL,
+CONSTRAINT [PK_REGI] PRIMARY KEY CLUSTERED 
+(
+	[DQMFLOWNAME] ASC,
+	[ERRORTYPECD] ASC,
+	[VALIDFROM] ASC
+)WITH (PAD_INDEX = OFF, STATISTICS_NORECOMPUTE = OFF, IGNORE_DUP_KEY = OFF, ALLOW_ROW_LOCKS = ON, ALLOW_PAGE_LOCKS = ON) ON [PRIMARY]
+) ON [PRIMARY]
+GO
+
+INSERT INTO [DBO].[REGI]
+           ([DQMFLOWNAME]
+           ,[ERRORTYPECD]
+           ,[CHECKTYPECD]
+           ,[SCHEMANAME]
+           ,[TABLENAME]
+           ,[COLUMNNAME]
+           ,[DQMKEYFIELDS]
+		   ,DELETEDFLAG
+           ,[VALIDFROM]
+           ,[VALIDTO])
+     VALUES
+		    ('TEST_DQM1','CHECK1','UNIQ','DBO','DIMDEPARTMENTGROUP','WEIGHTUNITMEASURECODE','PRODUCTKEY',0,'2010.01.01','2100.12.31'),
+			('TEST_DQM2','CHECK1','MISS','DBO','DIMDEPARTMENTGROUP','WEIGHTUNITMEASURECODE','PRODUCTKEY',0,'2010.01.01','2012.12.31'),
+			('TEST_DQM2','CHECK1','MISS','DBO','DIMDEPARTMENTGROUP','SIZEUNITMEASURECODE','PRODUCTKEY',0,'2013.01.01','2015.12.31'),
+			('TEST_DQM2','CHECK1','MISS','DBO','DIMDEPARTMENTGROUP','SPANISHPRODUCTNAME','PRODUCTKEY',0,'2016.01.01','2100.12.31')
+GO
+
+declare @DQM_check XML
+
+SET @DQM_check = (
+SELECT 
+	 [DqmFlowName]
+	,[ErrorTypeCD]
+	,[CheckTypeCD]
+	,[SchemaName]
+	,[TableName]
+	,[ColumnName]
+	,[DqmKeyFields]
+	,DeletedFlag
+	,[ValidFrom]
+	,[ValidTo]  
+FROM regi 
+FOR XML RAW('DQM_CHECK'),ROOT('DQM_CHECKS'), ELEMENTS 
+)
+
+exec INSERT_DQM_CHECK_DEFINITION @DQM_check
+
+select * from ETL_FLOW
+select * from DQM_FLOW
+select * from DQM_CHECK_DEFINITION
+
+INSERT INTO [dbo].[TABLE_FILTER]
+           ([TableName]
+           ,[Expression1]
+           ,[RelationID]
+           ,[Expression2]
+           ,[OrderNumber]
+           ,[DeletedFlag]
+           ,[ValidFrom]
+           ,[CreationDate]
+           ,[ModificationDate])
+     VALUES
+           (
+				'DIMDEPARTMENTGROUP'
+			   ,'DepartmentGroupKey'
+			   ,1
+			   ,'1'
+			   ,1
+			   ,0
+			   ,'2000.01.01'
+			   ,GETDATE()
+			   ,GETDATE()
+		   )
+GO
+
